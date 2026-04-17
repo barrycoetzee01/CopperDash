@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cu-Recov | Operations Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --copper: #b87333;
+            --steel: #4682b4;
+            --charcoal: #121212;
+            --amber: #ffbf00;
+        }
+        body { background-color: var(--charcoal); color: #e5e7eb; font-family: 'Inter', sans-serif; }
+        .bg-card { background-color: #1e1e1e; border: 1px solid #333; }
+        .text-copper { color: var(--copper); }
+        .bg-copper { background-color: var(--copper); }
+        .border-copper { border-color: var(--copper); }
+        .gradient-overlay { background: linear-gradient(180deg, rgba(184, 115, 51, 0.1) 0%, rgba(18, 18, 18, 0) 100%); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+        .tab-active { border-bottom: 2px solid var(--copper); color: var(--copper); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tighter flex items-center gap-2">
+                <i class="fas fa-industry text-copper"></i> CU-RECOV <span class="text-gray-500 font-light text-xl">| OPS CONTROL</span>
+            </h1>
+            <p class="text-gray-400 text-sm">Metal Recovery & Asset Liquidation Intelligence</p>
+        </div>
+        <div class="flex gap-4">
+            <button onclick="switchTab('overview')" class="px-4 py-2 hover:text-copper transition">Overview</button>
+            <button onclick="switchTab('inventory')" class="px-4 py-2 hover:text-copper transition">Inventory</button>
+            <button onclick="switchTab('analysis')" class="px-4 py-2 hover:text-copper transition">Deep Analysis</button>
+            <button onclick="toggleUpload()" class="bg-copper text-white px-6 py-2 rounded font-bold hover:opacity-90 transition">
+                <i class="fas fa-file-import mr-2"></i>DATA DATA
+            </button>
+        </div>
+    </header>
+
+    <section id="uploadSection" class="hidden mb-8 bg-card p-6 rounded-lg border-dashed border-2 border-gray-600">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+                <h3 class="text-xl font-bold mb-4 text-copper">Import Business Data</h3>
+                <p class="text-sm text-gray-400 mb-4">Upload your Collections, Extractions, or Sales logs. Support for .csv, .xlsx, and .json.</p>
+                <div id="dropZone" class="border-2 border-dashed border-gray-700 rounded-xl p-10 text-center cursor-pointer hover:border-copper transition" ondrop="handleDrop(event)" ondragover="handleDragOver(event)">
+                    <i class="fas fa-cloud-upload-alt text-4xl mb-2 text-gray-500"></i>
+                    <p>Drag and drop files here or <span class="text-copper">browse</span></p>
+                    <input type="file" id="fileInput" class="hidden" onchange="handleFile(event)">
+                </div>
+            </div>
+            <div class="bg-black bg-opacity-30 p-4 rounded-lg">
+                <h4 class="font-bold mb-2">Required Template Structure</h4>
+                <ul class="text-xs space-y-2 text-gray-400">
+                    <li><strong>Collections:</strong> Date, Item_Type, Qty, Cost, Area</li>
+                    <li><strong>Extractions:</strong> Date, Item_Type, Material, Weight_KG, Waste_KG</li>
+                    <li><strong>Sales:</strong> Date, Material, Qty_Sold, Price_Per_KG, Buyer</li>
+                </ul>
+                <button onclick="downloadTemplate()" class="mt-4 text-xs bg-gray-700 px-3 py-1 rounded hover:bg-gray-600 transition">Download Sample Template</button>
+            </div>
+        </div>
+    </section>
+
+    <div id="kpiContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        </div>
+
+    <main id="overviewTab">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="bg-card p-6 rounded-xl lg:col-span-2">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold uppercase tracking-widest text-sm text-gray-400 italic">Volume Trends (30 Days)</h3>
+                    <select class="bg-black text-xs border border-gray-700 rounded px-2 py-1 outline-none focus:border-copper">
+                        <option>Daily</option>
+                        <option>Weekly</option>
+                    </select>
+                </div>
+                <canvas id="trendChart" height="120"></canvas>
+            </div>
+            <div class="bg-card p-6 rounded-xl">
+                <h3 class="font-bold uppercase tracking-widest text-sm text-gray-400 italic mb-6">Current Material Mix</h3>
+                <canvas id="mixChart" height="250"></canvas>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-card p-6 rounded-xl">
+                <h3 class="font-bold uppercase tracking-widest text-sm text-gray-400 italic mb-4">Top Yielding Items</h3>
+                <div id="topItemsList" class="space-y-4">
+                    </div>
+            </div>
+            <div class="bg-card p-6 rounded-xl lg:col-span-2">
+                <h3 class="font-bold uppercase tracking-widest text-sm text-gray-400 italic mb-4">Sales Performance vs Target</h3>
+                <canvas id="salesChart" height="100"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <main id="analysisTab" class="hidden">
+        <div class="bg-card p-8 rounded-xl border-l-4 border-copper">
+            <h2 class="text-2xl font-bold mb-6">Operational Intelligence Report</h2>
+            <div id="analysisContent" class="grid grid-cols-1 md:grid-cols-2 gap-8 text-gray-300 leading-relaxed">
+                </div>
+        </div>
+    </main>
+
+    <main id="inventoryTab" class="hidden">
+        <div class="bg-card rounded-xl overflow-hidden">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-black text-copper uppercase font-bold">
+                    <tr>
+                        <th class="p-4">Material</th>
+                        <th class="p-4">Stock On Hand (kg)</th>
+                        <th class="p-4">Avg. Extraction Cost</th>
+                        <th class="p-4">Current Market Est.</th>
+                        <th class="p-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryTableBody" class="divide-y divide-gray-800">
+                    </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        /** * BUSINESS LOGIC & DATA HANDLING 
+         */
+        
+        // Demo Data (Standard for Initial Load)
+        let appData = {
+            collections: [
+                { date: '2024-03-01', item: 'Washing Machine', qty: 5, area: 'North Suburb', cost: 250 },
+                { date: '2024-03-02', item: 'Pool Pump', qty: 12, area: 'East Coast', cost: 600 },
+                { date: '2024-03-03', item: 'Microwave', qty: 8, area: 'North Suburb', cost: 160 },
+                { date: '2024-03-04', item: 'Fridge Compressor', qty: 20, area: 'South Valley', cost: 1000 },
+                { date: '2024-03-05', item: 'Aircon Unit', qty: 4, area: 'Downtown', cost: 800 }
+            ],
+            extractions: [
+                { date: '2024-03-02', item: 'Washing Machine', material: 'Copper', weight: 4.5, waste: 40 },
+                { date: '2024-03-02', item: 'Pool Pump', material: 'Copper', weight: 18.2, waste: 15 },
+                { date: '2024-03-03', item: 'Mixed', material: 'Aluminium', weight: 25.0, waste: 5 },
+                { date: '2024-03-04', item: 'Compressor', material: 'Copper', weight: 35.0, waste: 10 },
+                { date: '2024-03-05', item: 'Mixed', material: 'Brass', weight: 8.5, waste: 2 }
+            ],
+            sales: [
+                { date: '2024-03-10', material: 'Copper', qty: 50, price: 115.00, buyer: 'MetalEx Yard' },
+                { date: '2024-03-12', material: 'Aluminium', qty: 20, price: 28.50, buyer: 'Scrap Kings' }
+            ]
+        };
+
+        function initDashboard() {
+            renderKPIs();
+            renderTrendChart();
+            renderMixChart();
+            renderSalesChart();
+            renderTopItems();
+            renderAnalysis();
+            renderInventory();
+        }
+
+        // --- UI UTILS ---
+        function switchTab(tabId) {
+            ['overviewTab', 'analysisTab', 'inventoryTab'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(tabId + 'Tab').classList.remove('hidden');
+        }
+
+        function toggleUpload() {
+            const sec = document.getElementById('uploadSection');
+            sec.classList.toggle('hidden');
+        }
+
+        // --- CALCULATIONS ---
+        function renderKPIs() {
+            const totalCopper = appData.extractions.filter(e => e.material === 'Copper').reduce((sum, e) => sum + e.weight, 0);
+            const totalRevenue = appData.sales.reduce((sum, s) => sum + (s.qty * s.price), 0);
+            const totalItems = appData.collections.reduce((sum, c) => sum + c.qty, 0);
+            
+            const kpis = [
+                { label: 'Units Collected', val: totalItems, trend: '+12%', icon: 'fa-truck-loading' },
+                { label: 'Copper Extracted', val: totalCopper.toFixed(1) + 'kg', trend: '+5.2%', icon: 'fa-cube' },
+                { label: 'Total Revenue', val: 'R' + totalRevenue.toLocaleString(), trend: '+18%', icon: 'fa-hand-holding-usd' },
+                { label: 'Avg Yield / Item', val: '1.2kg', trend: '-2%', icon: 'fa-microchip' },
+                { label: 'Stock Value Est.', val: 'R14,200', trend: 'Stable', icon: 'fa-warehouse' }
+            ];
+
+            const container = document.getElementById('kpiContainer');
+            container.innerHTML = kpis.map(kpi => `
+                <div class="bg-card p-5 rounded-xl border-b-2 border-transparent hover:border-copper transition group">
+                    <div class="flex justify-between items-start mb-2">
+                        <i class="fas ${kpi.icon} text-gray-500 group-hover:text-copper"></i>
+                        <span class="text-[10px] ${kpi.trend.includes('+') ? 'text-green-500' : 'text-red-500'} font-bold px-2 py-1 bg-black rounded-full">${kpi.trend}</span>
+                    </div>
+                    <p class="text-xs text-gray-400 font-bold uppercase tracking-wider">${kpi.label}</p>
+                    <h2 class="text-2xl font-bold mt-1">${kpi.val}</h2>
+                </div>
+            `).join('');
+        }
+
+        // --- CHARTS ---
+        function renderTrendChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Inbound Units',
+                        data: [12, 19, 15, 25, 22, 30, 10],
+                        borderColor: '#b87333',
+                        backgroundColor: 'rgba(184, 115, 51, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: { 
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { grid: { color: '#333' } }, x: { grid: { display: false } } }
+                }
+            });
+        }
+
+        function renderMixChart() {
+            const ctx = document.getElementById('mixChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Copper', 'Aluminium', 'Brass', 'Steel'],
+                    datasets: [{
+                        data: [45, 25, 10, 20],
+                        backgroundColor: ['#b87333', '#a5a5a5', '#e1ad01', '#4682b4'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { cutout: '80%', plugins: { legend: { position: 'bottom', labels: { color: '#999', boxWidth: 12 } } } }
+            });
+        }
+
+        function renderSalesChart() {
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Mar 01', 'Mar 05', 'Mar 10', 'Mar 15', 'Mar 20'],
+                    datasets: [
+                        { label: 'Target', data: [5000, 5000, 5000, 5000, 5000], type: 'line', borderColor: '#555', borderDash: [5,5] },
+                        { label: 'Revenue', data: [2100, 4200, 8900, 3100, 5600], backgroundColor: '#b87333' }
+                    ]
+                },
+                options: { scales: { y: { grid: { color: '#333' } } } }
+            });
+        }
+
+        function renderTopItems() {
+            const items = [
+                { name: 'Pool Pumps', yield: '2.4kg Cu', profit: 'High' },
+                { name: 'Washing Machines', yield: '1.8kg Cu', profit: 'Med' },
+                { name: 'UPS Units', yield: '0.9kg Cu', profit: 'High' },
+                { name: 'Microwaves', yield: '0.4kg Cu', profit: 'Low' }
+            ];
+            const list = document.getElementById('topItemsList');
+            list.innerHTML = items.map(i => `
+                <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+                    <div>
+                        <p class="font-bold text-sm">${i.name}</p>
+                        <p class="text-xs text-gray-500">Avg. Recovery: ${i.yield}</p>
+                    </div>
+                    <span class="text-[10px] px-2 py-1 rounded ${i.profit === 'High' ? 'bg-green-900 text-green-300' : 'bg-gray-800 text-gray-400'}">${i.profit} MARGIN</span>
+                </div>
+            `).join('');
+        }
+
+        function renderInventory() {
+            const body = document.getElementById('inventoryTableBody');
+            const data = [
+                { m: 'Copper (Bright)', stock: 145, cost: 82, market: 118 },
+                { m: 'Aluminium (Cast)', stock: 89, cost: 18, market: 31 },
+                { m: 'Brass (Yellow)', stock: 32, cost: 55, market: 72 },
+                { m: 'Heavy Steel', stock: 1200, cost: 2.5, market: 4.8 }
+            ];
+            body.innerHTML = data.map(d => `
+                <tr class="hover:bg-black transition">
+                    <td class="p-4 font-bold text-copper">${d.m}</td>
+                    <td class="p-4">${d.stock} kg</td>
+                    <td class="p-4">R${d.cost}</td>
+                    <td class="p-4 text-green-500">R${d.market}</td>
+                    <td class="p-4"><span class="bg-blue-900 text-blue-200 text-[10px] px-2 py-1 rounded">READY TO SELL</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function renderAnalysis() {
+            const content = document.getElementById('analysisContent');
+            content.innerHTML = `
+                <div class="space-y-4">
+                    <p><i class="fas fa-arrow-trend-up text-copper mr-2"></i><strong>High Yield Alert:</strong> Pool pumps are currently delivering 25% more copper per unit than geyser elements. Recommend aggressive sourcing in <strong>East Coast</strong> area.</p>
+                    <p><i class="fas fa-exclamation-circle text-amber mr-2"></i><strong>Inventory Drag:</strong> Aluminium stock has grown by 40% this month without a corresponding sale. Check prices at Scrap Kings.</p>
+                </div>
+                <div class="space-y-4 border-l border-gray-700 pl-8">
+                    <p><i class="fas fa-chart-pie text-steel mr-2"></i><strong>Margin Analysis:</strong> Average collection cost is rising in North Suburb. Best ROI is currently coming from <strong>Household Marketplace</strong> agents.</p>
+                    <p><i class="fas fa-check-double text-green-500 mr-2"></i><strong>Efficiency:</strong> Recovery rate on compressors is at 94%, indicating high extraction skill. No change needed.</p>
+                </div>
+            `;
+        }
+
+        // --- FILE HANDLING ---
+        function handleFile(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                // Logic to map sheets to appData would go here
+                alert('Data received. In a live environment, this would now re-calculate all charts.');
+                toggleUpload();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            handleFile({ target: { files: [file] } });
+        }
+
+        function handleDragOver(e) { e.preventDefault(); }
+
+        function downloadTemplate() {
+            alert('Template structure: CSV with columns [Date, Item_Type, Category, Qty, Weight_Est, Cost, Area]');
+        }
+
+        // Initialize on load
+        window.onload = initDashboard;
+    </script>
+</body>
+</html>
